@@ -1,0 +1,296 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+	int id;
+	char **data;
+	int xflip;
+	int rotation;
+} Piece;
+
+int check_border(int width, int height, int row, int col, int my_nbr_dr, int my_nbr_dc, Piece* soln[width][height]) {
+	if (!my_nbr_dr && !my_nbr_dc) {
+		return 1;
+	}
+
+	int nbr_row = row + my_nbr_dr;
+	int nbr_col = col + my_nbr_dc;
+
+	int nbr_row_valid = (nbr_row >= 0) && (nbr_row < height);
+	int nbr_col_valid = (nbr_col >= 0) && (nbr_col < width);
+
+	if (!nbr_row_valid || !nbr_col_valid) {
+		return 1;
+	}
+
+	Piece *me = soln[row][col];
+	Piece *nbr = soln[nbr_row][nbr_col];
+
+	if (!me || !nbr) {
+		return 1;
+	}
+
+	int size = strlen(me->data[0]);
+
+	int check_dr = 0;
+	int check_dc = 0;
+	if (my_nbr_dc == 0) {
+		check_dc = 1;
+	}
+	if (my_nbr_dr == 0) {
+		check_dr = 1;
+	}
+
+	int len = 1;
+	if (!my_nbr_dc || !my_nbr_dr) {
+		len = size - 2;
+	}
+
+
+	int my_check_dr = check_dr, my_check_dc = check_dc;
+	int nbr_check_dr = check_dr, nbr_check_dc = check_dc;
+	int nbr_nbr_dr = -my_nbr_dr, nbr_nbr_dc = -my_nbr_dc;
+
+	if (me->xflip) {
+		my_check_dc = -my_check_dc;
+		my_nbr_dc = -my_nbr_dc;
+	}
+
+	if (nbr->xflip) {
+		nbr_check_dc = -nbr_check_dc;
+		nbr_nbr_dc = -nbr_nbr_dc;
+	}
+
+	int i;
+	for (i = 0; i < me->rotation; i++) {
+		int aux_my_nbr_dr = my_nbr_dc;
+		int aux_my_nbr_dc = -my_nbr_dr;
+		int aux_my_check_dr = my_check_dc;
+		int aux_my_check_dc = -my_check_dr;
+
+		my_nbr_dr = aux_my_nbr_dr;
+		my_nbr_dc = aux_my_nbr_dc;
+		my_check_dr = aux_my_check_dr;
+		my_check_dc = aux_my_check_dc;
+	}
+
+	for (i = 0; i < nbr->rotation; i++) {
+		int aux_nbr_nbr_dr = nbr_nbr_dc;
+		int aux_nbr_nbr_dc = -nbr_nbr_dr;
+		int aux_nbr_check_dr = nbr_check_dc;
+		int aux_nbr_check_dc = -nbr_check_dr;
+
+		nbr_nbr_dr = aux_nbr_nbr_dr;
+		nbr_nbr_dc = aux_nbr_nbr_dc;
+		nbr_check_dr = aux_nbr_check_dr;
+		nbr_check_dc = aux_nbr_check_dc;
+	}
+
+	int my_start_row, my_start_col;
+	int nbr_start_row, nbr_start_col;
+
+	if (my_nbr_dr == -1) { my_start_row = 0; }
+	else if (my_nbr_dr == 0) { my_start_row = (my_check_dr > 0) ? 1 : size - 2; }
+	else if (my_nbr_dr == 1) { my_start_row = size - 1; }
+
+	if (my_nbr_dc == -1) { my_start_col = 0; }
+	else if (my_nbr_dc == 0) { my_start_col = (my_check_dc > 0) ? 1 : size - 2; }
+	else if (my_nbr_dc == 1) { my_start_col = size - 1; }
+
+	if (nbr_nbr_dr == -1) { nbr_start_row = 0; }
+	else if (nbr_nbr_dr == 0) { nbr_start_row = (nbr_check_dr > 0) ? 1 : size - 2; }
+	else if (nbr_nbr_dr == 1) { nbr_start_row = size - 1; }
+
+	if (nbr_nbr_dc == -1) { nbr_start_col = 0; }
+	else if (nbr_nbr_dc == 0) { nbr_start_col = (nbr_check_dc > 0) ? 1 : size - 2; }
+	else if (nbr_nbr_dc == 1) { nbr_start_col = size - 1; }
+
+	for (i = 0; i < len; i++) {
+		char mine = me->data[my_start_row + i * my_check_dr][my_start_col + i * my_check_dc];
+		char nbrs = nbr->data[nbr_start_row + i * nbr_check_dr][nbr_start_col + i * nbr_check_dc];
+
+		if (mine != nbrs) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int is_valid(int width, int height, Piece* soln[width][height]) {
+	int row, col;
+	for (row = 0; row < height; row++) {
+		for (col = 0; col < width; col++) {
+			// Check the borders of [row, col.]
+			int dr, dc;
+			for (dr = -1; dr <= 1; dr++) {
+				for (dc = -1; dc <= 1; dc++) {
+					if (!check_border(width, height, row, col, dr, dc, soln)) {
+						return 0;
+					}
+				}
+			}
+		}
+	}
+	return 1;
+}
+
+int is_complete(int width, int height, Piece* soln[width][height]) {
+	int row, col;
+	for (row = 0; row < height; row++) {
+		for (col = 0; col < width; col++) {
+			if (!soln[row][col]) {
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
+int backtrack_recurse(int width, int height, int pos, Piece** pieces, Piece* soln[width][height]) {
+	if (!is_valid(width, height, soln)) {
+		return 0;
+	}
+
+	if (pos == width * height) {
+		pos--;
+	}
+	int row = pos / width;
+	int col = pos % width;
+
+	if (pos > 0) {
+		printf("\e[1;1H\e[2J");
+		int r, c;
+		for (r = 0; r <= row; r++) {
+			for (c = 0; c < width; c++) {
+				if (soln[r][c]) {
+					printf("%d ", soln[r][c]->id);
+				} else {
+					printf("     ");
+				}
+			}
+			printf("\n");
+		}
+	}
+
+	if (is_complete(width, height, soln)) {
+		// printf(" is valid, yay!\n");
+		return 1;
+	} else {
+		// printf("\n");
+
+		// can't be too safe...
+		if (pos == width * height) {
+			return 0;
+		}
+
+		int i, piece_idx;
+		int j;
+		for (piece_idx = 0; piece_idx < width * height; piece_idx++) {
+			int already_placed = 0;
+			for (j = 0; j < pos; j++) {
+				int jrow = j / width;
+				int jcol = j % width;
+				Piece *jpiece = soln[jrow][jcol];
+				if (jpiece && jpiece->id == pieces[piece_idx]->id) {
+					already_placed = 1;
+				}
+			}
+			if (already_placed) {
+				continue;
+			}
+			soln[row][col] = pieces[piece_idx];
+			for (i = 0; i < 8; i++) {
+				soln[row][col]->xflip = i / 4;
+				soln[row][col]->rotation = i % 4;
+
+				if (backtrack_recurse(width, height, pos + 1, pieces, soln)) {
+					return 1;
+				}
+			}
+		}
+		soln[row][col] = NULL;
+		return 0;
+	}
+}
+
+int backtrack(int width, int height, Piece** pieces, Piece* soln[width][height]) {
+	return backtrack_recurse(width, height, 0, pieces, soln);
+}
+
+int main(int argc, char** argv) {
+	if (argc != 2) {
+		fprintf(stderr, "usage: %s input\n", argv[0]);
+		exit(1);
+	}
+
+	FILE* in = fopen(argv[1], "r");
+
+	char* line = calloc(100, sizeof(char));
+	int tile_count = 0;
+	int tile_size = 0;
+	while (fgets(line, 100, in) != NULL) {
+		if (line[0] == '\n') {
+			continue;
+		}
+		if (line[0] == 'T') {
+			tile_count++;
+			tile_size = 0;
+		} else {
+			tile_size++;
+		}
+	}
+
+	int grid_size = 0;
+	while (grid_size * grid_size < tile_count) {
+		grid_size++;
+	}
+
+	Piece **pieces = calloc(tile_count, sizeof(*pieces));
+
+	rewind(in);
+	int tile_no = -1;
+	int tile_row = 0;
+	while (fgets(line, 100, in) != NULL) {
+		if (line[0] == '\n') {
+			continue;
+		} else if (line[0] == 'T') {
+			int id;
+			int success = sscanf(line, "Tile %d:", &id);
+			if (!success) {
+				fprintf(stderr, "Couldn't parse %s", line);
+				exit(1);
+			}
+			char **data = calloc(tile_size, sizeof(*data));
+			tile_no++;
+
+			pieces[tile_no] = malloc(sizeof(Piece));
+			pieces[tile_no]->data = data;
+			pieces[tile_no]->id = id;
+			tile_row = 0;
+		} else {
+			pieces[tile_no]->data[tile_row] = calloc(tile_size, sizeof(char));
+			strncpy(pieces[tile_no]->data[tile_row], line, tile_size);
+			tile_row++;
+		}
+	}
+
+	Piece* (*soln)[grid_size] = calloc(grid_size, sizeof(*soln));
+
+	int good = backtrack(grid_size, grid_size, pieces, soln);
+	if (good) {
+		printf("Yay!\n");
+		long long product = 1ULL;
+		product *= soln[0][0]->id;
+		product *= soln[0][grid_size - 1]->id;
+		product *= soln[grid_size - 1][0]->id;
+		product *= soln[grid_size - 1][grid_size - 1]->id;
+		printf("PRODUCT OF CORNERS %lld\n", product);
+	}
+
+	free(soln);
+	free(pieces);
+	free(line);
+
+	return 0;
+}
