@@ -27,7 +27,7 @@ int cyk(char* pattern, Node* rules, int num_symbols) {
 		for (iter = rules; iter && iter->rule; iter = iter->next) {
 			if (iter->rule->terminal == pattern[s]) {
 				matches[1][s + 1][iter->rule->nonterminal] = 1;
-				// printf("rule %d -> %c matches str[%d] = %c\n", iter->rule->nonterminal, iter->rule->terminal, s, iter->rule->terminal);
+				printf("rule %d -> %c matches str[%d] = %c\n", iter->rule->nonterminal, iter->rule->terminal, s, iter->rule->terminal);
 			}
 		}
 	}
@@ -46,11 +46,11 @@ int cyk(char* pattern, Node* rules, int num_symbols) {
 							memcpy(left, pattern + s - 1, p);
 							memcpy(right, pattern + s - 1 + p, l - p);
 							matches[l][s][rule->nonterminal] = left_matches && right_matches;
-							/*
+							
 							printf("rule %d -> %d %d matches str[%d:%d] = %s|%s\n",
 								iter->rule->nonterminal, iter->rule->left, iter->rule->right,
 								s - 1, s - 1 + l, left, right);
-							*/
+						
 							memset(left, 0, 100);
 							memset(right, 0, 100);
 						}

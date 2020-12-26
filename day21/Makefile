@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS=-Wall -Wpedantic -lm -O3
+CC=cc
+CFLAGS=-Wall -Wpedantic
 
 clean:
 	rm -f part1 part2

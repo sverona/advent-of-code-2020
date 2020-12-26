@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 typedef struct {
 	int id;
@@ -8,6 +9,37 @@ typedef struct {
 	int xflip;
 	int rotation;
 } Piece;
+
+void affine_transform(int rotation, int xflip, int array_size, int* x, int* y) {
+	int sin[4] = {0, 1, 0, -1};
+	int cos[4] = {1, 0, -1, 0};
+
+	float x0 = (array_size - 1) / 2.0;
+	float y0 = x0;
+
+	int f = xflip ? -1 : 1;
+
+	float xf = (*x - x0) * f * cos[rotation] - (*y - y0) * sin[rotation] + x0;
+	float yf = (*x - x0) * f * sin[rotation] + (*y - y0) * cos[rotation] + y0;
+
+	// printf("%d %d -> %f %f\n", *x, *y, xf, yf);
+
+	*x = (int)round(xf);
+	*y = (int)round(yf);
+}
+
+void border(int d, int size, int* start, int* di) {
+	if (d == 0) {
+		*start = 1;
+		*di = 1;
+	} else if (d == -1) {
+		*start = 0;
+		*di = 0;
+	} else if (d == 1) {
+		*start = size - 1;
+		*di = 0;
+	}
+}
 
 int check_border(int width, int height, int row, int col, int my_nbr_dr, int my_nbr_dc, Piece* soln[width][height]) {
 	if (!my_nbr_dr && !my_nbr_dc) {
@@ -32,83 +64,26 @@ int check_border(int width, int height, int row, int col, int my_nbr_dr, int my_
 	}
 
 	int size = strlen(me->data[0]);
-
-	int check_dr = 0;
-	int check_dc = 0;
-	if (my_nbr_dc == 0) {
-		check_dc = 1;
-	}
-	if (my_nbr_dr == 0) {
-		check_dr = 1;
-	}
-
-	int len = 1;
-	if (!my_nbr_dc || !my_nbr_dr) {
-		len = size - 2;
-	}
-
-
-	int my_check_dr = check_dr, my_check_dc = check_dc;
-	int nbr_check_dr = check_dr, nbr_check_dc = check_dc;
-	int nbr_nbr_dr = -my_nbr_dr, nbr_nbr_dc = -my_nbr_dc;
-
-	if (me->xflip) {
-		my_check_dc = -my_check_dc;
-		my_nbr_dc = -my_nbr_dc;
-	}
-
-	if (nbr->xflip) {
-		nbr_check_dc = -nbr_check_dc;
-		nbr_nbr_dc = -nbr_nbr_dc;
-	}
+	int my_start_row, my_range_dr;
+	border(my_nbr_dr, size, &my_start_row, &my_range_dr);
+	int my_start_col, my_range_dc;
+	border(my_nbr_dc, size, &my_start_col, &my_range_dc);
+	int nbr_start_row, nbr_range_dr;
+	border(-my_nbr_dr, size, &nbr_start_row, &nbr_range_dr);
+	int nbr_start_col, nbr_range_dc;
+	border(-my_nbr_dc, size, &nbr_start_col, &nbr_range_dc);
 
 	int i;
-	for (i = 0; i < me->rotation; i++) {
-		int aux_my_nbr_dr = my_nbr_dc;
-		int aux_my_nbr_dc = -my_nbr_dr;
-		int aux_my_check_dr = my_check_dc;
-		int aux_my_check_dc = -my_check_dr;
+	for (i = 0; i < size - 2; i++) {
+		int my_row = my_start_row + i * my_range_dr;
+		int my_col = my_start_col + i * my_range_dc;
+		int nbr_row = nbr_start_row + i * nbr_range_dr;
+		int nbr_col = nbr_start_col + i * nbr_range_dc;
+		affine_transform(me->rotation, me->xflip, size, &my_row, &my_col);
+		affine_transform(nbr->rotation, nbr->xflip, size, &nbr_row, &nbr_col);
 
-		my_nbr_dr = aux_my_nbr_dr;
-		my_nbr_dc = aux_my_nbr_dc;
-		my_check_dr = aux_my_check_dr;
-		my_check_dc = aux_my_check_dc;
-	}
-
-	for (i = 0; i < nbr->rotation; i++) {
-		int aux_nbr_nbr_dr = nbr_nbr_dc;
-		int aux_nbr_nbr_dc = -nbr_nbr_dr;
-		int aux_nbr_check_dr = nbr_check_dc;
-		int aux_nbr_check_dc = -nbr_check_dr;
-
-		nbr_nbr_dr = aux_nbr_nbr_dr;
-		nbr_nbr_dc = aux_nbr_nbr_dc;
-		nbr_check_dr = aux_nbr_check_dr;
-		nbr_check_dc = aux_nbr_check_dc;
-	}
-
-	int my_start_row, my_start_col;
-	int nbr_start_row, nbr_start_col;
-
-	if (my_nbr_dr == -1) { my_start_row = 0; }
-	else if (my_nbr_dr == 0) { my_start_row = (my_check_dr > 0) ? 1 : size - 2; }
-	else if (my_nbr_dr == 1) { my_start_row = size - 1; }
-
-	if (my_nbr_dc == -1) { my_start_col = 0; }
-	else if (my_nbr_dc == 0) { my_start_col = (my_check_dc > 0) ? 1 : size - 2; }
-	else if (my_nbr_dc == 1) { my_start_col = size - 1; }
-
-	if (nbr_nbr_dr == -1) { nbr_start_row = 0; }
-	else if (nbr_nbr_dr == 0) { nbr_start_row = (nbr_check_dr > 0) ? 1 : size - 2; }
-	else if (nbr_nbr_dr == 1) { nbr_start_row = size - 1; }
-
-	if (nbr_nbr_dc == -1) { nbr_start_col = 0; }
-	else if (nbr_nbr_dc == 0) { nbr_start_col = (nbr_check_dc > 0) ? 1 : size - 2; }
-	else if (nbr_nbr_dc == 1) { nbr_start_col = size - 1; }
-
-	for (i = 0; i < len; i++) {
-		char mine = me->data[my_start_row + i * my_check_dr][my_start_col + i * my_check_dc];
-		char nbrs = nbr->data[nbr_start_row + i * nbr_check_dr][nbr_start_col + i * nbr_check_dc];
+		char mine = me->data[my_row][my_col];
+		char nbrs = nbr->data[nbr_row][nbr_col];
 
 		if (mine != nbrs) {
 			return 0;
@@ -117,10 +92,12 @@ int check_border(int width, int height, int row, int col, int my_nbr_dr, int my_
 	return 1;
 }
 
-int is_valid(int width, int height, Piece* soln[width][height]) {
+int is_valid(int width, int height, int row, int col, Piece* soln[width][height]) {
+	/*
 	int row, col;
 	for (row = 0; row < height; row++) {
 		for (col = 0; col < width; col++) {
+	*/
 			// Check the borders of [row, col.]
 			int dr, dc;
 			for (dr = -1; dr <= 1; dr++) {
@@ -130,8 +107,10 @@ int is_valid(int width, int height, Piece* soln[width][height]) {
 					}
 				}
 			}
+	/*
 		}
 	}
+	*/
 	return 1;
 }
 
@@ -147,21 +126,46 @@ int is_complete(int width, int height, Piece* soln[width][height]) {
 	return 1;
 }
 
+void antidiagonal(int size, int pos, int* row, int* col) {
+	int invert = (pos >= size * (size + 1) / 2);
+	if (invert) {
+		pos = size * size - 1 - pos;
+	}
+
+	int arow;
+	int top_of_row = 0;
+	for (arow = 0; pos >= top_of_row; arow++) {
+		top_of_row = arow * (arow + 1) / 2;
+	}
+
+	int top_of_last_row = top_of_row - arow;
+	int acol = pos - top_of_last_row;
+
+	if (invert) {
+		*row = (size - (arow - acol));
+		*col = (size - acol);
+	} else {
+		*row = arow - acol - 1;
+		*col = acol - 1;
+	}
+}
+
 int backtrack_recurse(int width, int height, int pos, Piece** pieces, Piece* soln[width][height]) {
-	if (!is_valid(width, height, soln)) {
+	int row, col;
+	antidiagonal(width, pos, &row, &col);
+
+	int prevrow, prevcol;
+	antidiagonal(width, pos - 1, &prevrow, &prevcol);
+
+	if (!is_valid(width, height, prevrow, prevcol, soln)) {
 		return 0;
 	}
 
-	if (pos == width * height) {
-		pos--;
-	}
-	int row = pos / width;
-	int col = pos % width;
-
+	/*
 	if (pos > 0) {
 		printf("\e[1;1H\e[2J");
 		int r, c;
-		for (r = 0; r <= row; r++) {
+		for (r = 0; r < height; r++) {
 			for (c = 0; c < width; c++) {
 				if (soln[r][c]) {
 					printf("%d ", soln[r][c]->id);
@@ -172,13 +176,11 @@ int backtrack_recurse(int width, int height, int pos, Piece** pieces, Piece* sol
 			printf("\n");
 		}
 	}
+	*/
 
 	if (is_complete(width, height, soln)) {
-		// printf(" is valid, yay!\n");
 		return 1;
 	} else {
-		// printf("\n");
-
 		// can't be too safe...
 		if (pos == width * height) {
 			return 0;
@@ -186,14 +188,16 @@ int backtrack_recurse(int width, int height, int pos, Piece** pieces, Piece* sol
 
 		int i, piece_idx;
 		int j;
+
 		for (piece_idx = 0; piece_idx < width * height; piece_idx++) {
 			int already_placed = 0;
 			for (j = 0; j < pos; j++) {
-				int jrow = j / width;
-				int jcol = j % width;
+				int jrow, jcol;
+				antidiagonal(width, j, &jrow, &jcol);
 				Piece *jpiece = soln[jrow][jcol];
 				if (jpiece && jpiece->id == pieces[piece_idx]->id) {
 					already_placed = 1;
+					break;
 				}
 			}
 			if (already_placed) {
@@ -279,7 +283,7 @@ int main(int argc, char** argv) {
 
 	int good = backtrack(grid_size, grid_size, pieces, soln);
 	if (good) {
-		printf("Yay!\n");
+		// printf("Yay!\n");
 		long long product = 1ULL;
 		product *= soln[0][0]->id;
 		product *= soln[0][grid_size - 1]->id;
